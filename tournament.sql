@@ -11,6 +11,9 @@ Drop Database If Exists tournament ;
 -- Create tournament database
 Create database tournament;
 
+-- connect to database
+
+\c tournament;
 -- CREATE Tournaments table
 -- time field is included to record the
 -- tournament registration time
@@ -54,7 +57,7 @@ CREATE TABLE registration ( tournament_id INTEGER REFERENCES tournaments(id),
                               tournament_id INTEGER REFERENCES tournaments(id),
                               winner_id INTEGER REFERENCES players(id) NOT NULL,
                               loser_id INTEGER REFERENCES players(id) NOT NULL,
-                              tie  BOOLEAN DEFAULT false,
+                              tied  BOOLEAN DEFAULT false,
                               time timestamp DEFAULT now()
                               );
 
@@ -77,3 +80,22 @@ SELECT registration.player_id as id,players.name as name,
        )
  GROUP BY  registration.player_id,players.name,registration.tournament_id
  ORDER BY points desc;
+
+
+ CREATE VIEW opponents
+ AS
+ SELECT registration.player_id as player_id,matches.loser_id as opponent_id,
+        registration.tournament_id as tournament_id
+ FROM    registration
+ JOIN    matches ON
+        (registration.player_id = matches.winner_id AND
+         registration.tournament_id= matches.tournament_id
+         )
+ UNION
+ SELECT registration.player_id as player_id,matches.winner_id as opponent_id,
+        registration.tournament_id as tournament_id
+ FROM    registration
+ JOIN    matches ON
+        (registration.player_id = matches.loser_id AND
+         registration.tournament_id= matches.tournament_id
+       );
