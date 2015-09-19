@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 #
 # tournament.py -- implementation of a Swiss-system tournament
 #
@@ -6,9 +6,6 @@
 import psycopg2
 import sys
 from _collections import defaultdict
-# Global constanst for points. 3 for Win and 1 for Draw
-TIE_POINTS = 1
-WIN_POINTS = 3
 
 
 def connect():
@@ -28,7 +25,6 @@ def deleteMatches(tournament_id=1):
     conn.commit()
     conn.close()
 
-
 def deletePlayers():
     """Remove all the player records from the database.
        This also mean to remove all records carrying this player
@@ -37,7 +33,6 @@ def deletePlayers():
     conn = connect()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM matches")
-    cursor.execute("DELETE FROM registration")
     cursor.execute("DELETE FROM players")
     conn.commit()
     conn.close()
@@ -50,7 +45,7 @@ def countPlayers(tournament_id=1):
     """
     conn = connect()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(player_id) FROM registration " +
+    cursor.execute("SELECT COUNT(*) FROM tournamentplayers " +
                     " WHERE tournament_id = %s" ,
                  (tournament_id,))
     result=cursor.fetchall()
@@ -72,17 +67,16 @@ def registerPlayer(name,tournament_id=1):
     cursor = conn.cursor()
     cursor.execute("INSERT INTO players ( name ) VALUES (%s) RETURNING id",
                    (name,))
-    conn.commit()
     player_id=cursor.fetchone()
-    cursor.execute("INSERT INTO registration (tournament_id,player_id) "
-                    "VALUES (%s,%s)",
-                   (tournament_id,player_id))
+    cursor.execute("INSERT INTO tournamentplayers ( tournament_id,player_id ) \
+      VALUES (%s,%s) ", (tournament_id,player_id,))
     conn.commit()
     conn.close()
     return player_id
 
 
-def playerStandings(tournamenet_id=1):
+
+def playerStandings(tournament_id=1):
     """Returns a list of the players and their win records, sorted by wins.
 
     The first entry in the list should be the player in first place,
@@ -98,8 +92,8 @@ def playerStandings(tournamenet_id=1):
     """
     conn = connect()
     cursor = conn.cursor()
-    cursor.execute("SELECT id,name,wins,matches,byes FROM playerstanding WHERE tournament_id = %s",
-                    (tournamenet_id,))
+    cursor.execute("SELECT id,name,wins,matches,byes,points FROM playerstanding \
+      WHERE tournament_id = %s",(tournament_id,))
     results = cursor.fetchall()
     conn.close()
     return results
@@ -117,26 +111,15 @@ def reportMatch(winner, loser, tied=False, tournament_id=1):
     # winner and loser with same id means a bye
     conn=connect()
     cursor=conn.cursor()
-    cursor.execute ("INSERT INTO matches (tournament_id, winner_id, loser_id, tied) " +
-                    "VALUES (%s,%s,%s,%s)",(tournament_id,winner,loser,tied))
-    if (winner != loser):
-        cursor.execute (" UPDATE registration SET " +
-                         " wins = wins+1 ," +
-                         "points = points + %s " +
-                         " WHERE tournament_id  =%s AND player_id = %s",
-                         (WIN_POINTS,tournament_id,winner))
-        conn.commit()
-    else:
-        cursor.execute (" UPDATE registration SET " +
-                         " byes = byes+1 AND points = points + %s " +
-                         " WHERE tournament_id  =%s AND player_id = %s",
-                         (TIE_POINTS,tournament_id,winner))
-        cursor.commit()
+    cursor.execute ("INSERT INTO matches (tournament_id, player1_id, player2_id, tied) \
+                     VALUES (%s,%s,%s,%s)",(tournament_id,winner,loser,tied))
+
+    conn.commit()
     conn.close()
-    
+
 
 def swissPairings(tournament_id=1):
-    """Returns a list of pairs of players for the next round of a match.  
+    """Returns a list of pairs of players for the next round of a match.
     Assuming that there are an even number of players registered, each player
     appears exactly once in the pairings.  Each player is paired with another
     player with an equal or nearly-equal win record, that is, a player adjacent
@@ -154,21 +137,23 @@ def swissPairings(tournament_id=1):
     swiss_pairings=[]
     player_standings= playerStandings(tournament_id)
     paired_table=[False] * len(player_standings)
+    #Check in case have odd number of player
     if ( len(player_standings) % 2 != 0) :
-        player1_index=findBye(player_standings,paired_table)
-        addPairing(swiss_pairings,player_standings,player1,player1)
+        player1_index=findByeIndex(player_standings,paired_table)
+        addPairing(swiss_pairings,player_standings,player1_index,player1_index)
+    # a dictionary which holds player along with their opponents
     opponents_dict=Opponents()
     #for (id,name,wins,matches,byes) in player_standings :
     for index in range(len(player_standings)):
         #Make sure player is not already paired
         if (paired_table[index] == False ) :
-            opponent_id=findOpponentIndex(player_standings[index][0],player_standings,
+            opponent_id=findOpponentIndex(index,player_standings,
                                      paired_table,opponents_dict)
             addPairing(swiss_pairings,player_standings,index,
                        opponent_id)
     return swiss_pairings
 
-def findOpponentIndex(player_id,player_standings,paired_table,opponents_dict):
+def findOpponentIndex(player_standing_index,player_standings,paired_table,opponents_dict):
     """Returns a likely opponent index in player_standings for a player_id.
     Arg:
       player_id: the player's unique id (assigned by the database)
@@ -181,6 +166,7 @@ def findOpponentIndex(player_id,player_standings,paired_table,opponents_dict):
       opponent_id which can play with player passed as first paramenter
       the argument.
     """
+    player_id=player_standings[player_standing_index][0]
     for index in range(len(player_standings)):
         #ensure player should not play itself and not already paired
         if ( (player_id != player_standings[index][0]) and
@@ -190,6 +176,7 @@ def findOpponentIndex(player_id,player_standings,paired_table,opponents_dict):
                 continue;
             else :
                 paired_table[index] = True
+                paired_table[player_standing_index]=True
                 return index
 
 def Opponents(tournament_id=1):
@@ -232,14 +219,18 @@ def findByeIndex(player_standings, paired_table):
     min_byes = sys.maxint
     while current_index >=0 :
         if( paired_table[current_index] == False):
+            #index 4 shows number of byes so far
             num_byes=player_standings[current_index][4]
-            if (num_byes == 0):
+            if (num_byes == 0):#
+                #index of player who will get a bye
                 paired_table[current_index] = True
                 return current_index
             elif (num_byes < min_byes):
+                # save lowest number of bye
                 min_byes=num_byes
                 bye_index=current_index
     current_index=current_index-1
+    # Return index of player with least bye
     return bye_index
 
 def addPairing(swiss_pairings, player_standings, player1_index, player2_index):

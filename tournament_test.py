@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 #
 # Test cases for tournament.py
 
@@ -68,12 +68,12 @@ def testStandingsBeforeMatches():
                          "they have played any matches.")
     elif len(standings) > 2:
         raise ValueError("Only registered players should appear in standings.")
-    # in order to accomodate multiple tournament and that mean 5 column in view 
-    # that make following condition invalid
-    #if len(standings[0]) != 4:
-        #raise ValueError("Each playerStandings row should have four columns.")
-    #added byes into following structure 
-    [(id1, name1, wins1, matches1,byes1), (id2, name2, wins2, matches2,byes2)] = standings
+    # in order to accomodate multiple tournament playerstanding returns 5 column
+    # so condition updated to 5 Column
+    if len(standings[0]) != 6:
+        raise ValueError("Each playerStandings row should have six columns.")
+    #added byes and points into following structure
+    [(id1, name1, wins1, matches1,byes1,points1), (id2, name2, wins2, matches2,byes2,points2)] = standings
     if matches1 != 0 or matches2 != 0 or wins1 != 0 or wins2 != 0:
         raise ValueError(
             "Newly registered players should have no matches or wins.")
@@ -95,8 +95,8 @@ def testReportMatches():
     reportMatch(id1, id2)
     reportMatch(id3, id4)
     standings = playerStandings()
-    # bye added
-    for (i, n, w, m,b) in standings:
+    # bye and points added
+    for (i, n, w, m,b,p) in standings:
         if m != 1:
             raise ValueError("Each player should have one match recorded.")
         if i in (id1, id3) and w != 1:
@@ -129,6 +129,85 @@ def testPairings():
             "After one match, players with one win should be paired.")
     print "8. After one match, players with one win are paired."
 
+def testByes():
+    deleteMatches()
+    deletePlayers()
+    registerPlayer("Catherine Sparkle")
+    registerPlayer("Alex Jones")
+    registerPlayer("Sam Whetabix")
+
+    standings = playerStandings()
+    [id1, id2, id3] = [row[0] for row in standings]
+    reportMatch(id1, id2)
+    reportMatch(id3, id3)
+    pairings = swissPairings()
+    if len(pairings) != 2:
+        raise ValueError(
+            "For three players, swissPairings should return two pairs.")
+    [(pid1, pname1, pid2, pname2), (pid3, pname3, pid4, pname4)] = pairings
+    if pid1 != pid2 :
+        raise ValueError(
+            "swissPairings should suggest a bye in odd number of player.")
+    if pid1 == id3 or pid2 == id3:
+        raise ValueError(
+            "swissPairings should not suggest bye to a player who already" \
+            " had in earlier round.")
+    print "9. After one match, Swisspairing suggest bye successfully " \
+             " to a new player."
+
+def testWinner():
+    deleteMatches()
+    deletePlayers()
+    registerPlayer("Allen Sugar")
+    registerPlayer("Kate Smith")
+    registerPlayer("Sue Miller")
+
+    standings = playerStandings()
+    [id1, id2, id3] = [row[0] for row in standings]
+    reportMatch(id1, id2)
+    reportMatch(id3, id3)
+    pairings = swissPairings()
+    if len(pairings) != 2:
+        raise ValueError(
+            "For three players, swissPairings should return two pairs.")
+    [(pid1, pname1, pid2, pname2), (pid3, pname3, pid4, pname4)] = pairings
+    reportMatch(pid1, pid2)
+    reportMatch(pid3, pid4)
+    standings = playerStandings()
+    [id1, id2, id3] = [row[0] for row in standings]
+    if (id1 != pid3) :
+        raise ValueError(
+            "System not able to suggest a winner after two round " \
+             "in three player tournament.")
+    print "10. System able to suggest a winner using swisspairing after " \
+             "two round in three player tournament."
+
+def testtie():
+    deleteMatches()
+    deletePlayers()
+    registerPlayer("Kep Moore")
+    registerPlayer("Alton May")
+    registerPlayer("Kate Peacock")
+
+    standings = playerStandings()
+    [id1, id2, id3] = [row[0] for row in standings]
+    reportMatch(id1, id2)
+    reportMatch(id3, id3)
+    pairings = swissPairings()
+    if len(pairings) != 2:
+        raise ValueError(
+            "For three players, swissPairings should return two pairs.")
+    [(pid1, pname1, pid2, pname2), (pid3, pname3, pid4, pname4)] = pairings
+    reportMatch(pid1, pid2)
+    reportMatch(pid3, pid4,True)
+    standings = playerStandings()
+    [points1, points2, points3] = [row[5] for row in standings]
+    if (points1 >= 6 or points1 <=3) :
+        raise ValueError(
+            "Three player participating in tournament after two round with " \
+             "a match result in tie .Winner points should be >3 and <6.")
+    print "11. System successfully able to accomodate tie matches."
+
 
 if __name__ == '__main__':
     testDeleteMatches()
@@ -139,6 +218,8 @@ if __name__ == '__main__':
     testStandingsBeforeMatches()
     testReportMatches()
     testPairings()
+    testByes()
+    testWinner()
+    testtie()
+
     print "Success!  All tests pass!"
-
-
