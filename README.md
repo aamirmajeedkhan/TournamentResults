@@ -3,27 +3,22 @@ This is a second project of udaity full stack developer course.
 This project implements a tournament using swiss pairing method.
 The project uses postgresql as a database and python 2.7 as programming
 language.
-
 # Project Files
-
 *  **tournament.sql** This file create database schema needed for tournament.This
 includes table creation and view creation scripts.
 *  **tournament.py** This file contain python code.
 *  **tournament_test.py** This file contain python test cases.
-
 # Tournament Database
 Tournament database consist of following table. 
 * **tournaments** store id aand name of tournament.
 * **players** store id and name of player.
 * **tournamentplayers** resolve many to many relationship between above two tables.
 * **matches** records player, opponent and tie.
-
 Couple of views are also created.
 * **playerstanding** This view shows list of player ranked by their points.
 * **opponents** This view shows player with thier opponent in each tournament.
 
 **Note:** *tournaments, players, tournamentplayers and matches contain time field for audit purpose.*
-
 # Extra Credit Feature implemented
    Following features are implemented beyond the baseline requirement.
 * Prevent rematches between players. This feature is implemented by a view called 
@@ -40,8 +35,6 @@ Couple of views are also created.
 * A point system is maintain to helps decide the winner . This is implemented by keeping two global constant 
   in database for win and tie points. These constants then later used in playerstanding view to help rank 
   player. 
-
-
 # Setup
 * Download and install [Vagrant](https://www.vagrantup.com/) and [VirtualBox](https://www.virtualbox.org/) .
 * Setup the environment following [instructions](https://www.udacity.com/wiki/ud197/install-vagrant).
